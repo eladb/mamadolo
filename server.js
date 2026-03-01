@@ -54,6 +54,7 @@ app.get('/api/history', async (req, res) => {
     try {
       const response = await fetch(url, { headers: OREF_HEADERS });
       const text = await response.text();
+      console.log(`[history] ${url} → status=${response.status} length=${text?.length} preview=${text?.slice(0, 80)}`);
       if (!text || !text.trim()) continue;
 
       const cleaned = text.replace(/^\uFEFF/, '').trim();
@@ -61,8 +62,9 @@ app.get('/api/history', async (req, res) => {
       if (Array.isArray(data) && data.length > 0) {
         return res.json(data);
       }
-    } catch {
-      // try next endpoint
+      console.log(`[history] ${url} → not a non-empty array, got: ${JSON.stringify(data)?.slice(0, 80)}`);
+    } catch (err) {
+      console.error(`[history] ${url} → error: ${err.message}`);
     }
   }
 

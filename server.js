@@ -69,6 +69,11 @@ app.get('/api/history', async (req, res) => {
   res.json([]);
 });
 
+// Catch-all: serve the frontend for any non-API route
+app.get('*', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'index.html'));
+});
+
 app.listen(PORT, () => {
   console.log(`Server running at http://localhost:${PORT}`);
 });

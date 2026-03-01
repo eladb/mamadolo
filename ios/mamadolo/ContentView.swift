@@ -4,7 +4,7 @@ import SwiftUI
 
 extension Color {
     init(hex: String) {
-        var hex = hex.trimmingCharacters(in: .alphanumerics.inverted)
+        let hex = hex.trimmingCharacters(in: .alphanumerics.inverted)
         var int: UInt64 = 0
         Scanner(string: hex).scanHexInt64(&int)
         let r, g, b: UInt64

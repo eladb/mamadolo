@@ -3,7 +3,18 @@ import Foundation
 @MainActor
 class AlertsManager: ObservableObject {
 
-    static let city = "אבן יהודה"
+    // MARK: - City selection
+
+    @Published var selectedCity: String {
+        didSet {
+            UserDefaults.standard.set(selectedCity, forKey: "selectedCity")
+            history = filteredHistory(from: allHistoryItems)
+            reEvaluateAlert()
+        }
+    }
+    @Published var availableCities: [String] = []
+
+    // MARK: - Published state
 
     @Published var currentAlert: AlertResponse? = nil
     @Published var cityInAlert = false
@@ -13,6 +24,10 @@ class AlertsManager: ObservableObject {
     @Published var historyError = false
     @Published var isLoadingAlerts = true
     @Published var isLoadingHistory = true
+
+    // MARK: - Private
+
+    private var allHistoryItems: [HistoryItem] = []
 
     private let headers: [String: String] = [
         "User-Agent": "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1",
@@ -26,8 +41,31 @@ class AlertsManager: ObservableObject {
     private var historyTask: Task<Void, Never>?
 
     init() {
+        selectedCity = UserDefaults.standard.string(forKey: "selectedCity") ?? "אבן יהודה"
         startPolling()
     }
+
+    // MARK: - City selection
+
+    func selectCity(_ city: String) {
+        selectedCity = city   // didSet handles the rest
+    }
+
+    private func reEvaluateAlert() {
+        guard let alert = currentAlert else { cityInAlert = false; return }
+        cityInAlert = alert.data.contains { c in
+            c.contains(selectedCity) || selectedCity.contains(c)
+        }
+    }
+
+    private func filteredHistory(from items: [HistoryItem]) -> [HistoryItem] {
+        items.filter { item in
+            guard let d = item.data else { return false }
+            return d.contains(selectedCity) || selectedCity.contains(d)
+        }
+    }
+
+    // MARK: - Polling
 
     func startPolling() {
         Task { await fetchAlerts() }
@@ -81,7 +119,7 @@ class AlertsManager: ObservableObject {
                 let alert = try JSONDecoder().decode(AlertResponse.self, from: Data(text.utf8))
                 currentAlert = alert
                 cityInAlert = alert.data.contains { c in
-                    c.contains(Self.city) || Self.city.contains(c)
+                    c.contains(selectedCity) || selectedCity.contains(c)
                 }
             }
             lastUpdate = Date()
@@ -117,10 +155,11 @@ class AlertsManager: ObservableObject {
                 let items = try JSONDecoder().decode([HistoryItem].self, from: Data(text.utf8))
                 if items.isEmpty { continue }
 
-                history = items.filter { item in
-                    guard let d = item.data else { return false }
-                    return d.contains(Self.city) || Self.city.contains(d)
-                }
+                allHistoryItems = items
+                availableCities = Array(
+                    Set(items.compactMap { $0.data?.trimmingCharacters(in: .whitespaces) }.filter { !$0.isEmpty })
+                ).sorted()
+                history = filteredHistory(from: items)
                 historyError = false
                 isLoadingHistory = false
                 return

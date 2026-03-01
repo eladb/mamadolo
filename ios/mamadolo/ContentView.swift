@@ -17,6 +17,77 @@ extension Color {
     }
 }
 
+// MARK: - City Picker Sheet
+
+struct CityPickerView: View {
+    @ObservedObject var manager: AlertsManager
+    @Binding var isPresented: Bool
+    @State private var searchText = ""
+
+    var filtered: [String] {
+        searchText.isEmpty ? manager.availableCities
+            : manager.availableCities.filter { $0.contains(searchText) }
+    }
+
+    var body: some View {
+        NavigationStack {
+            ZStack {
+                Color(hex: "0f1117").ignoresSafeArea()
+                Group {
+                    if manager.isLoadingHistory {
+                        VStack(spacing: 12) {
+                            ProgressView().tint(Color(hex: "7986cb"))
+                            Text("טוען ערים...")
+                                .foregroundColor(Color(hex: "525f7f"))
+                                .font(.system(size: 14))
+                        }
+                    } else if manager.availableCities.isEmpty {
+                        Text("אין ערים זמינות")
+                            .foregroundColor(Color(hex: "525f7f"))
+                            .font(.system(size: 15))
+                    } else {
+                        List(filtered, id: \.self) { city in
+                            Button {
+                                manager.selectCity(city)
+                                isPresented = false
+                            } label: {
+                                HStack {
+                                    // In RTL: Text leads from right, checkmark trails on left
+                                    Text(city)
+                                        .foregroundColor(.white)
+                                        .font(.system(size: 16))
+                                    Spacer()
+                                    if city == manager.selectedCity {
+                                        Image(systemName: "checkmark")
+                                            .foregroundColor(Color(hex: "7986cb"))
+                                            .fontWeight(.semibold)
+                                    }
+                                }
+                            }
+                            .listRowBackground(
+                                city == manager.selectedCity
+                                    ? Color(hex: "1e2a4a")
+                                    : Color(hex: "1a1d2e")
+                            )
+                        }
+                        .listStyle(.plain)
+                        .searchable(text: $searchText, prompt: "חיפוש עיר")
+                    }
+                }
+            }
+            .navigationTitle("בחר עיר")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("ביטול") { isPresented = false }
+                        .foregroundColor(Color(hex: "7986cb"))
+                }
+            }
+            .environment(\.layoutDirection, .rightToLeft)
+        }
+    }
+}
+
 // MARK: - Main View
 
 struct ContentView: View {
@@ -24,6 +95,7 @@ struct ContentView: View {
     @State private var progressValue: Double = 1.0
     @State private var dotOpacity: Double = 1.0
     @State private var borderPulse: Double = 1.0
+    @State private var showingCityPicker = false
 
     private var isAlert: Bool { manager.cityInAlert }
     private var hasAnyAlert: Bool { !(manager.currentAlert?.data.isEmpty ?? true) }
@@ -52,19 +124,19 @@ struct ContentView: View {
         .environment(\.layoutDirection, .rightToLeft)
         .preferredColorScheme(.dark)
         .onAppear {
-            // Blinking status dot
             withAnimation(.easeInOut(duration: 1.4).repeatForever(autoreverses: true)) {
                 dotOpacity = 0.3
             }
-            // Pulsing alert border
             withAnimation(.easeInOut(duration: 1.2).repeatForever(autoreverses: true)) {
                 borderPulse = 0.4
             }
-            // Progress bar tied to 5s alert poll
             resetProgress()
         }
         .onChange(of: manager.lastUpdate) { _ in
             resetProgress()
+        }
+        .sheet(isPresented: $showingCityPicker) {
+            CityPickerView(manager: manager, isPresented: $showingCityPicker)
         }
     }
 
@@ -73,13 +145,21 @@ struct ContentView: View {
     var headerView: some View {
         HStack(spacing: 14) {
             Text("🛡️").font(.system(size: 34))
-            VStack(alignment: .trailing, spacing: 2) {
-                Text("התרעות פיקוד העורף — אבן יהודה")
+            VStack(alignment: .trailing, spacing: 3) {
+                Text("התרעות פיקוד העורף")
                     .font(.system(size: 17, weight: .bold))
                     .foregroundColor(.white)
-                Text("עדכון בזמן אמת מאתר פיקוד העורף הרשמי")
-                    .font(.system(size: 12))
-                    .foregroundColor(Color(hex: "8892b0"))
+                Button {
+                    showingCityPicker = true
+                } label: {
+                    HStack(spacing: 4) {
+                        Image(systemName: "chevron.down")
+                            .font(.system(size: 10, weight: .semibold))
+                        Text(manager.selectedCity)
+                            .font(.system(size: 13))
+                    }
+                    .foregroundColor(Color(hex: "7986cb"))
+                }
             }
             Spacer()
         }
@@ -119,7 +199,6 @@ struct ContentView: View {
 
     var liveAlertCard: some View {
         VStack(alignment: .trailing, spacing: 12) {
-            // Card header row
             HStack {
                 if let update = manager.lastUpdate {
                     Text("עודכן: \(timeString(update))")
@@ -139,7 +218,6 @@ struct ContentView: View {
                 }
             }
 
-            // Card body
             Group {
                 if manager.isLoadingAlerts {
                     ProgressView().tint(Color(hex: "7986cb")).frame(maxWidth: .infinity).padding(.vertical, 16)
@@ -161,10 +239,8 @@ struct ContentView: View {
         .background(isAlert ? Color(hex: "2a0a0a") : Color(hex: "12261e"))
         .overlay(
             ZStack {
-                // Base border
                 RoundedRectangle(cornerRadius: 12)
                     .stroke(isAlert ? Color(hex: "c0392b") : Color(hex: "1e6b45"), lineWidth: 2)
-                // Pulsing overlay when alert
                 if isAlert {
                     RoundedRectangle(cornerRadius: 12)
                         .stroke(Color(hex: "e74c3c"), lineWidth: 2)
@@ -178,7 +254,7 @@ struct ContentView: View {
 
     var alertActiveBody: some View {
         let cities = manager.currentAlert?.data.filter { c in
-            c.contains(AlertsManager.city) || AlertsManager.city.contains(c)
+            c.contains(manager.selectedCity) || manager.selectedCity.contains(c)
         } ?? []
         return VStack(alignment: .trailing, spacing: 10) {
             Text("🚨 התרעה פעילה!")
@@ -204,8 +280,8 @@ struct ContentView: View {
 
     var otherAreaAlertBody: some View {
         VStack(alignment: .trailing, spacing: 8) {
-            Text("אין התרעה עבור אבן יהודה")
-                .font(.system(size: 26, weight: .black))
+            Text("אין התרעה עבור \(manager.selectedCity)")
+                .font(.system(size: 24, weight: .black))
                 .foregroundColor(Color(hex: "2ecc71"))
             Text("ישנה התרעה פעילה באזורים אחרים (\(manager.currentAlert?.data.count ?? 0) ישובים).")
                 .font(.system(size: 14))
@@ -219,7 +295,7 @@ struct ContentView: View {
             Text("אין התרעה פעילה")
                 .font(.system(size: 26, weight: .black))
                 .foregroundColor(Color(hex: "2ecc71"))
-            Text("אין כרגע התרעה פעילה עבור אבן יהודה.")
+            Text("אין כרגע התרעה פעילה עבור \(manager.selectedCity).")
                 .font(.system(size: 14))
                 .foregroundColor(Color(hex: "aab4c4"))
         }
@@ -230,7 +306,7 @@ struct ContentView: View {
 
     var historySection: some View {
         VStack(alignment: .trailing, spacing: 14) {
-            Text("היסטוריית התרעות — 24 שעות אחרונות (אבן יהודה)")
+            Text("היסטוריית התרעות — 24 שעות אחרונות (\(manager.selectedCity))")
                 .font(.system(size: 15, weight: .bold))
                 .foregroundColor(Color(hex: "c5cae9"))
                 .frame(maxWidth: .infinity, alignment: .trailing)
@@ -243,7 +319,7 @@ struct ContentView: View {
             if manager.isLoadingHistory {
                 ProgressView().tint(Color(hex: "7986cb")).frame(maxWidth: .infinity).padding(.vertical, 20)
             } else if manager.history.isEmpty {
-                Text("לא נמצאו התרעות עבור אבן יהודה ב-24 השעות האחרונות.")
+                Text("לא נמצאו התרעות עבור \(manager.selectedCity) ב-24 השעות האחרונות.")
                     .foregroundColor(Color(hex: "525f7f"))
                     .font(.system(size: 14))
                     .frame(maxWidth: .infinity)
@@ -259,12 +335,8 @@ struct ContentView: View {
 
     func historyRow(item: HistoryItem) -> some View {
         HStack(alignment: .top) {
-            Text(item.formattedDate)
-                .font(.system(size: 12))
-                .foregroundColor(Color(hex: "525f7f"))
-                .frame(width: 72, alignment: .leading)
-            Spacer()
-            VStack(alignment: .trailing, spacing: 3) {
+            // In RTL: main content leads from the right, timestamp trails on the left
+            VStack(alignment: .leading, spacing: 3) {
                 Text(item.category_desc ?? "התרעה")
                     .font(.system(size: 15, weight: .bold))
                     .foregroundColor(Color(hex: "e8eaf6"))
@@ -272,6 +344,11 @@ struct ContentView: View {
                     .font(.system(size: 13))
                     .foregroundColor(Color(hex: "9fa8da"))
             }
+            Spacer()
+            Text(item.formattedDate)
+                .font(.system(size: 12))
+                .foregroundColor(Color(hex: "525f7f"))
+                .frame(width: 72, alignment: .trailing)
         }
         .padding(.horizontal, 18)
         .padding(.vertical, 14)

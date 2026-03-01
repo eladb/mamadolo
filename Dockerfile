@@ -8,7 +8,7 @@ LABEL fly_launch_runtime="Node.js"
 WORKDIR /app
 
 ENV NODE_ENV="production"
-ENV PORT=3000
+ENV PORT=8080
 
 FROM base AS build
 

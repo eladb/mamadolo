@@ -52,16 +52,15 @@ struct CityPickerView: View {
                                 isPresented = false
                             } label: {
                                 HStack {
-                                    // In RTL: Text leads from right, checkmark trails on left
-                                    Text(city)
-                                        .foregroundColor(.white)
-                                        .font(.system(size: 16))
-                                    Spacer()
                                     if city == manager.selectedCity {
                                         Image(systemName: "checkmark")
                                             .foregroundColor(Color(hex: "7986cb"))
                                             .fontWeight(.semibold)
                                     }
+                                    Spacer()
+                                    Text(city)
+                                        .foregroundColor(.white)
+                                        .font(.system(size: 16))
                                 }
                             }
                             .listRowBackground(
@@ -83,7 +82,6 @@ struct CityPickerView: View {
                         .foregroundColor(Color(hex: "7986cb"))
                 }
             }
-            .environment(\.layoutDirection, .rightToLeft)
         }
     }
 }
@@ -121,7 +119,6 @@ struct ContentView: View {
                 }
             }
         }
-        .environment(\.layoutDirection, .rightToLeft)
         .preferredColorScheme(.dark)
         .onAppear {
             withAnimation(.easeInOut(duration: 1.4).repeatForever(autoreverses: true)) {
@@ -335,8 +332,12 @@ struct ContentView: View {
 
     func historyRow(item: HistoryItem) -> some View {
         HStack(alignment: .top) {
-            // In RTL: main content leads from the right, timestamp trails on the left
-            VStack(alignment: .leading, spacing: 3) {
+            Text(item.formattedDate)
+                .font(.system(size: 12))
+                .foregroundColor(Color(hex: "525f7f"))
+                .frame(width: 72, alignment: .leading)
+            Spacer()
+            VStack(alignment: .trailing, spacing: 3) {
                 Text(item.category_desc ?? "התרעה")
                     .font(.system(size: 15, weight: .bold))
                     .foregroundColor(Color(hex: "e8eaf6"))
@@ -344,11 +345,6 @@ struct ContentView: View {
                     .font(.system(size: 13))
                     .foregroundColor(Color(hex: "9fa8da"))
             }
-            Spacer()
-            Text(item.formattedDate)
-                .font(.system(size: 12))
-                .foregroundColor(Color(hex: "525f7f"))
-                .frame(width: 72, alignment: .trailing)
         }
         .padding(.horizontal, 18)
         .padding(.vertical, 14)

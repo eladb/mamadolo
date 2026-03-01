@@ -9,6 +9,7 @@ const OREF_HEADERS = {
   'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
   'Referer': 'https://www.oref.org.il/',
   'X-Requested-With': 'XMLHttpRequest',
+  'Content-Type': 'application/json',
   'Accept': 'application/json, text/plain, */*',
   'Accept-Language': 'he-IL,he;q=0.9,en-US;q=0.8,en;q=0.7',
 };
@@ -41,24 +42,31 @@ app.get('/api/alerts', async (req, res) => {
   }
 });
 
-// Alert history (last 24h)
+// Alert history — uses the canonical AJAX endpoint on alerts-history.oref.org.il
+// Falls back to the static JSON file if the primary endpoint fails
 app.get('/api/history', async (req, res) => {
-  try {
-    const response = await fetch('https://www.oref.org.il/WarningMessages/History/AlertsHistory.json', {
-      headers: OREF_HEADERS,
-    });
+  const endpoints = [
+    'https://alerts-history.oref.org.il/Shared/Ajax/GetAlarmsHistory.aspx?lang=he&mode=1',
+    'https://www.oref.org.il/warningMessages/alert/History/AlertsHistory.json',
+  ];
 
-    const text = await response.text();
-    if (!text || !text.trim()) {
-      return res.json([]);
+  for (const url of endpoints) {
+    try {
+      const response = await fetch(url, { headers: OREF_HEADERS });
+      const text = await response.text();
+      if (!text || !text.trim()) continue;
+
+      const cleaned = text.replace(/^\uFEFF/, '').trim();
+      const data = JSON.parse(cleaned);
+      if (Array.isArray(data) && data.length > 0) {
+        return res.json(data);
+      }
+    } catch {
+      // try next endpoint
     }
-
-    const cleaned = text.replace(/^\uFEFF/, '').trim();
-    const data = JSON.parse(cleaned);
-    res.json(Array.isArray(data) ? data : []);
-  } catch (err) {
-    res.json([]);
   }
+
+  res.json([]);
 });
 
 app.listen(PORT, () => {

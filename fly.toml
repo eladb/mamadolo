@@ -1,15 +1,15 @@
-# fly.toml app configuration file generated for mamadorlo on 2026-03-01T05:14:53Z
+# fly.toml app configuration file generated for mamadolo on 2026-03-01T07:11:58Z
 #
 # See https://fly.io/docs/reference/configuration/ for information about how to use this file.
 #
 
-app = 'mamadorlo'
+app = 'mamadolo'
 primary_region = 'ams'
 
 [build]
 
 [http_service]
-  internal_port = 3000
+  internal_port = 8080
   force_https = true
   auto_stop_machines = 'stop'
   auto_start_machines = true
@@ -17,6 +17,7 @@ primary_region = 'ams'
   processes = ['app']
 
 [[vm]]
-  memory = '256mb'
+  memory = '1gb'
   cpu_kind = 'shared'
   cpus = 1
+  memory_mb = 256

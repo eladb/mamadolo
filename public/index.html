@@ -379,9 +379,10 @@
       const res = await fetch('/api/history');
       const data = await res.json();
 
+      // API returns item.data as a string (city name)
       const cityAlerts = data.filter(item =>
-        item.data && Array.isArray(item.data) &&
-        item.data.some(c => c.includes(CITY) || CITY.includes(c))
+        item.data && typeof item.data === 'string' &&
+        (item.data.includes(CITY) || CITY.includes(item.data))
       );
 
       if (cityAlerts.length === 0) {
@@ -392,8 +393,8 @@
       const items = cityAlerts.map(item => `
         <div class="history-item">
           <div>
-            <div class="city">${item.title || 'התרעה'}</div>
-            <div class="category">${(item.data || []).join(' • ')}</div>
+            <div class="city">${item.category_desc || 'התרעה'}</div>
+            <div class="category">${item.data}</div>
           </div>
           <div class="time">${formatTime(item.alertDate)}</div>
         </div>
